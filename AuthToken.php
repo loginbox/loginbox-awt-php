@@ -1,15 +1,22 @@
 <?php
 
-declare(strict_types = 1);
+/*
+ * This file is part of the LoginBox Package.
+ *
+ * (c) Loginbox <developers@loginbox.io>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
 
 namespace Loginbox\Awt;
 
+use InvalidArgumentException;
+
 /**
- * Class AuthToken
- * Create and verify authentication tokens.
+ * Class AuthToken. Create and verify authentication tokens.
  *
  * @package Loginbox\Awt
- * @version 0.1
  */
 class AuthToken
 {
@@ -19,31 +26,29 @@ class AuthToken
      * @param array  $payload The payload in the form of array.
      * @param string $key     The key to sign the token.
      *
-     * @return string The token generated. False if the payload is not valid (not array or empty).
+     * @return string
+     * @throws InvalidArgumentException
      */
     public static function generate(array $payload, $key)
     {
         // Check if payload is array
         if (!is_array($payload)) {
-            return false;
+            throw new InvalidArgumentException('Token payload must be an array');
         }
 
         // Check if payload or key is empty
         if (empty($payload) || empty($key)) {
-            return false;
+            throw new InvalidArgumentException('Both payload and key must have a value');
         }
 
-        // Encode payload to json
-        $payloadJSON = json_encode($payload, JSON_FORCE_OBJECT);
-
-        // Encode
-        $payloadJSON_encoded = base64_encode($payloadJSON);
+        // Encode with json and base64
+        $payloadEncoded = base64_encode(json_encode($payload, JSON_FORCE_OBJECT));
 
         // Create signature
-        $signature = hash_hmac($algo = "sha256", $data = $payloadJSON_encoded, $key);
+        $signature = hash_hmac($algo = 'SHA256', $data = $payloadEncoded, $key);
 
         // Return combined key
-        return $payloadJSON_encoded . "." . $signature;
+        return implode('.', [$payloadEncoded, $signature]);
     }
 
     /**
@@ -51,17 +56,16 @@ class AuthToken
      *
      * @param string  $token      The authentication token.
      * @param boolean $jsonDecode Whether to decode the payload from json to array.
-     *                            It is TRUE by default.
      *
-     * @return mixed Array or json string according to second parameter.
+     * @return mixed Array or json string according to $jsonDecode value.
      */
     public static function getPayload($token, $jsonDecode = true)
     {
         // Split parts
-        $parts = explode(".", $token);
+        list($payload, $signature) = explode('.', $token);
 
         // Decode first part
-        $payloadJSON = base64_decode($parts[0]);
+        $payloadJSON = base64_decode($payload);
 
         // Choose to decode or not
         if ($jsonDecode) {
@@ -88,17 +92,11 @@ class AuthToken
         }
 
         // Split parts
-        $parts = explode(".", $token);
-
-        // Get payload and signature
-        $payloadJSON_encoded = $parts[0];
-        $signature = $parts[1];
+        list($payloadJSON_encoded, $signature) = explode('.', $token);
 
         // Generate signature to verify
-        $signatureGenerated = hash_hmac("sha256", $payloadJSON_encoded, $key);
+        $signatureGenerated = hash_hmac('SHA256', $payloadJSON_encoded, $key);
 
         return ($signature === $signatureGenerated);
     }
 }
-
-?>
